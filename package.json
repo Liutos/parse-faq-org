@@ -4,15 +4,18 @@
   "description": "我的FAQ的全文搜索工具",
   "main": "parse-faq-org.js",
   "scripts": {
+    "dev": "egg-bin dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "babel-eslint": "10.1.0",
+    "egg-bin": "4.15.0",
     "eslint": "7.3.1"
   },
   "dependencies": {
+    "egg": "2.27.0",
     "node-jieba": "0.0.3"
   }
 }
