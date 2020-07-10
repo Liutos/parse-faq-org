@@ -3,15 +3,17 @@
  */
 'use strict';
 
-const Lexer = require('./lexer');
-
 const FAQS = Symbol('InvertedIndex#faqs');
 const WORDS = Symbol('InvertedIndex#words');
 const WORD_FAQ_MAPPING = Symbol('InvertedIndex#word_faq_mapping');
 
 class InvertedIndex {
-  constructor() {
+  /**
+   * @param {Object} lexer - 分词器
+   */
+  constructor(lexer) {
     this.faqs = [];
+    this.lexer = lexer;
     this.words = [];
     this.wordFaqMappings = [];
   }
@@ -48,9 +50,10 @@ class InvertedIndex {
 
   async search(query) {
     const faqs = this.faqs;
+    const lexer = this.lexer;
     const wordFaqMappings = this.wordFaqMappings;
     // 先对查询的内容进行分词
-    const words = Lexer.tokenize(query);
+    const words = lexer.tokenize(query);
     console.log('分词结果为', words);
     // 再用每一个词分别找出能够在answer和question字段中命中的文档
     const results = new Map();
@@ -92,11 +95,12 @@ class InvertedIndex {
    * @param {string} faq.question - 问题的描述
    */
   update(faq) {
+    const lexer = this.lexer;
     const faqId = this._findOrAllocateFaqId(faq);
     const fields = ['answer', 'question'];
     for (const field of fields) {
       const content = faq[field];
-      const words = Lexer.tokenize(content);
+      const words = lexer.tokenize(content);
       for (const word of words) {
         const wordId = this._findOrAllocateWordId(word);
         this._saveMapping(field, wordId, faqId);
