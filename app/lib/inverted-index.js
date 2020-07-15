@@ -55,11 +55,13 @@ class InvertedIndex {
     // 先对查询的内容进行分词
     const words = lexer.tokenize(query);
     console.log('分词结果为', words);
+    // 根据分词结果找出所有待搜索的词
+    const targetWords = this._generalizeWords(words);
     // 再用每一个词分别找出能够在answer和question字段中命中的文档
     const results = new Map();
     const fields = ['answer', 'question'];
     for (const field of fields) {
-      for (const word of words) {
+      for (const word of targetWords) {
         const wordId = this._findOrAllocateWordId(word);
         console.log(`“${word}”的ID为${wordId}`);
         const mappings = wordFaqMappings.filter(m => {
@@ -133,6 +135,24 @@ class InvertedIndex {
     }
     words.push(word);
     return words.length - 1;
+  }
+
+  /**
+   * 返回泛化后的分词结果
+   * @param {string[]} words - 查询内容的原始分词结果
+   */
+  _generalizeWords(words) {
+    const result = [];
+    this.words.forEach(w => {
+      if (words.includes(w)) {
+        result.push(w);
+      } else if (words.find(word => w.startsWith(word))) {
+        // 将以查询内容为前缀的预分词结果也作为稍后匹配文档时的候选项
+        // 解决搜索“复制”时没有将分词结果为“复制到”的FAQ搜出来的问题。
+        result.push(w);
+      }
+    });
+    return result;
   }
 
   /**
