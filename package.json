@@ -1,10 +1,11 @@
 {
   "name": "parse-faq-org",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "我的FAQ的全文搜索工具",
   "main": "parse-faq-org.js",
   "scripts": {
     "dev": "egg-bin dev",
+    "start": "egg-scripts start --port=9020 --daemon --title=parse-faq-org",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -16,6 +17,7 @@
   },
   "dependencies": {
     "egg": "2.27.0",
+    "egg-scripts": "2.13.0",
     "node-jieba": "0.0.3"
   }
 }
