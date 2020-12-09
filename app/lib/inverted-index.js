@@ -59,7 +59,7 @@ class InvertedIndex {
     const targetWords = this._generalizeWords(words);
     // 再用每一个词分别找出能够在answer和question字段中命中的文档
     const results = new Map();
-    const fields = ['answer', 'question'];
+    const fields = ['answer', 'path', 'question'];
     for (const field of fields) {
       for (const word of targetWords) {
         const wordId = this._findOrAllocateWordId(word);
@@ -99,7 +99,7 @@ class InvertedIndex {
   update(faq) {
     const lexer = this.lexer;
     const faqId = this._findOrAllocateFaqId(faq);
-    const fields = ['answer', 'question'];
+    const fields = ['answer', 'path', 'question'];
     for (const field of fields) {
       const content = faq[field];
       const words = lexer.tokenize(content);

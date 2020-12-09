@@ -64,7 +64,9 @@ class FaqService extends Service {
     if (question) {
       faqs.push({
         answer: answer.join('\n'),
-        question
+        path,
+        question,
+        questionLineNum
       });
     }
     return faqs;
