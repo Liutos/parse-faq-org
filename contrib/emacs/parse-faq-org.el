@@ -47,24 +47,15 @@
                           (cdr (assoc 'data response))))))
     (mapcar (lambda (faq)
               (cons (cdr (assoc 'question faq))
-                    (cdr (assoc 'answer faq))))
+                    ;; 为了可以让action同时取到问题的描述和解答部分，这里必须要将这两者都放入candidate中。
+                    (list (cdr (assoc 'answer faq))
+                          (cdr (assoc 'question faq)))))
             faqs)))
-
-(defun make-faq-candidates (response)
-  "将查询ElasticSearch的结果构造为helm可以识别的candidates格式"
-  (let ((hits (cdr (assoc 'hits (cdr (assoc 'hits response))))))
-    (mapcar (lambda (doc)
-              (let ((_source (cdr (assoc '_source doc))))
-                (cons (cdr (assoc 'question _source))
-                      ;; (cdr (assoc 'answer (assoc '_source doc)))
-                      (cdr (assoc '_id doc)))))
-            hits)))
 
 (defvar faq-query nil
   "存储用户的查询关键词的变量。")
 
 (defun faq-candidates ()
-  ;; (make-faq-candidates (faq faq-query))
   (lt--convert-to-candidates
    (lt--query-parse-faq-org faq-query)))
 
@@ -79,37 +70,12 @@
       (org-mode)
       (erase-buffer)
       (insert text)
-      (read-only-mode))))
-
-;;; 定义用于helm的source
-
-(setq faq-helm-sources
-      `((name . "FAQ at Emacs")
-        (candidates . faq-candidates)
-        (action . (lambda (candidate)
-                    (let (response
-                          (url (format "http://localhost:9200/faq/_doc/%s" candidate)))
-                      (message "url is %s" url)
-                      (request
-                       url
-                       :parser 'buffer-string
-                       :success (cl-function
-                                 (lambda (&key data &allow-other-keys)
-                                   (setq data (decode-coding-string data 'utf-8))
-                                   (setq response (json-read-from-string data))))
-                       :sync t)
-                      ;; 从文档中提取出问题和答案，拼装成原本在.org文件中的模样
-                      (let ((answer (cdr (assoc 'answer (assoc '_source response))))
-                            (question (cdr (assoc 'question (assoc '_source response)))))
-                        (show-faq
-                         (concat question "\n" answer))))))))
-
-(setq faq-helm-sources
-      (list
-       `((name . "parse-faq-org的匹配结果")
-         (candidates . faq-candidates)
-         (action . (lambda (candidate)
-                     (show-faq candidate))))))
+      (read-only-mode)
+      ;; 在这个buffer中设置按键q为退出
+      (use-local-map (copy-keymap org-mode-map))
+      (local-set-key "\C-q" (lambda ()
+                              (interactive)
+                              (kill-buffer (current-buffer)))))))
 
 (defun lt-ask ()
   "交互式地从minibuffer中读取笔记的关键词并展示选项"
@@ -117,3 +83,5 @@
   (let ((content (read-from-minibuffer "笔记关键词：")))
     (setq faq-query content)
     (helm :sources faq-helm-sources)))
+
+(provide 'parse-faq-org)
