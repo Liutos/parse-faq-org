@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"strings"
+	"sync"
 
 	"github.com/yanyiwu/gojieba"
 )
@@ -91,6 +94,10 @@ func (*OrgParser) ParseFileContent(fileContent string, path string) ([]Doc, erro
 			contentLines := make([]string, 0)
 			for i < len(lines) {
 				line := lines[i]
+				if len(line) == 0 {
+					i += 1
+					continue
+				}
 				if line[0] != '*' {
 					contentLines = append(contentLines, line)
 					i += 1
@@ -114,12 +121,71 @@ func (*OrgParser) ParseFileContent(fileContent string, path string) ([]Doc, erro
 
 type Tokenizer struct{}
 
+var (
+	jiebaEngine *gojieba.Jieba
+	once        sync.Once
+)
+
 func (*Tokenizer) Tokenize(content string) []string {
-	x := gojieba.NewJieba()
-	defer x.Free()
-	return x.Cut(content, true)
+	once.Do(func() {
+		jiebaEngine = gojieba.NewJieba() // TODO: 需要在进程退出时调用 Free 方法。
+	})
+	return jiebaEngine.Cut(content, true)
+}
+
+// listDirectoryFile 返回一个目录下除了.和..之外的所有文件的绝对路径。
+func listDirectoryFile(dir string) ([]string, error) {
+	result := []string{}
+	fileInfos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, fileInfo := range fileInfos {
+		basename := fileInfo.Name()
+		if basename == "." || basename == ".." {
+			continue
+		}
+		absolutePath := dir + "/" + basename
+		if fileInfo.IsDir() {
+			files, err := listDirectoryFile(absolutePath)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, files...)
+		} else {
+			result = append(result, absolutePath)
+		}
+	}
+	return result, nil
 }
 
 func main() {
-	fmt.Println("Hello, world!")
+	files, err := listDirectoryFile("/Users/liutos/Projects/my_note/faq")
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	indexer := NewIndexer()
+	for _, file := range files {
+		data, err := ioutil.ReadFile(file)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		content := string(data)
+		docs, err := (&OrgParser{}).ParseFileContent(content, file)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+		log.Printf("解析了文件%s\n", file)
+
+		for _, doc := range docs {
+			indexer.AddDoc(&doc)
+			log.Printf("将文档%s加入到索引中\n", doc.Title)
+		}
+	}
 }
