@@ -6,7 +6,9 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/yanyiwu/gojieba"
 )
 
@@ -161,31 +163,44 @@ func listDirectoryFile(dir string) ([]string, error) {
 }
 
 func main() {
-	files, err := listDirectoryFile("/Users/liutos/Projects/my_note/faq")
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
 	indexer := NewIndexer()
-	for _, file := range files {
-		data, err := ioutil.ReadFile(file)
+
+	go func() {
+		// TODO: 需要获取一个 indexer 变量的写锁才行。
+		// TODO: 最好可以来个双缓冲。
+		dir := "/Users/liutos/Projects/my_note/faq"
+		log.Printf("开始解析%s下的文件", dir)
+		files, err := listDirectoryFile(dir)
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 
-		content := string(data)
-		docs, err := (&OrgParser{}).ParseFileContent(content, file)
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
-		log.Printf("解析了文件%s\n", file)
+		for {
+			for _, file := range files {
+				data, err := ioutil.ReadFile(file)
+				if err != nil {
+					log.Fatal(err)
+					return
+				}
 
-		for _, doc := range docs {
-			indexer.AddDoc(&doc)
-			log.Printf("将文档%s加入到索引中\n", doc.Title)
+				content := string(data)
+				docs, err := (&OrgParser{}).ParseFileContent(content, file)
+				if err != nil {
+					log.Fatal(err)
+					return
+				}
+				log.Printf("解析了文件%s\n", file)
+
+				for _, doc := range docs {
+					indexer.AddDoc(&doc)
+					log.Printf("将文档%s加入到索引中\n", doc.Title)
+				}
+			}
+			time.Sleep(time.Minute)
 		}
-	}
+	}()
+
+	r := gin.Default()
+	r.Run()
 }
