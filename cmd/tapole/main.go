@@ -31,17 +31,17 @@ func (indexer *Indexer) AddDoc(doc *Doc) {
 
 // QueryDocs 返回与输入 query 相关的文档的副本。
 func (indexer *Indexer) QueryDocs(query string) []Doc {
-	relatedDocs := map[string]*Doc{}
+	relatedDocs := map[string]Doc{}
 	words := (&Tokenizer{}).Tokenize(query)
 	for _, word := range words {
 		_docs := indexer.WordToDocs[word]
 		for _, _doc := range _docs {
-			relatedDocs[_doc.Title] = &_doc
+			relatedDocs[_doc.Title] = _doc
 		}
 	}
 	docs := []Doc{}
 	for _, doc := range relatedDocs {
-		docs = append(docs, *doc)
+		docs = append(docs, doc)
 	}
 	return docs
 }
@@ -162,12 +162,18 @@ func listDirectoryFile(dir string) ([]string, error) {
 	return result, nil
 }
 
+type QueryResult struct {
+	Answer          string `json:"answer"`
+	Path            string `json:"path"`
+	Question        string `json:"question"`
+	QuestionLineNum int    `json:"questionLineNum"`
+}
+
 func main() {
-	indexer := NewIndexer()
+	var indexer *Indexer
 
 	go func() {
 		// TODO: 需要获取一个 indexer 变量的写锁才行。
-		// TODO: 最好可以来个双缓冲。
 		dir := "/Users/liutos/Projects/my_note/faq"
 		log.Printf("开始解析%s下的文件", dir)
 		files, err := listDirectoryFile(dir)
@@ -177,6 +183,7 @@ func main() {
 		}
 
 		for {
+			newIndexer := NewIndexer()
 			for _, file := range files {
 				data, err := ioutil.ReadFile(file)
 				if err != nil {
@@ -193,14 +200,33 @@ func main() {
 				log.Printf("解析了文件%s\n", file)
 
 				for _, doc := range docs {
-					indexer.AddDoc(&doc)
+					newIndexer.AddDoc(&doc)
 					log.Printf("将文档%s加入到索引中\n", doc.Title)
 				}
 			}
+			indexer = newIndexer
 			time.Sleep(time.Minute)
 		}
 	}()
 
 	r := gin.Default()
+	r.GET("/faq/query", func(c *gin.Context) {
+		faqs := []*QueryResult{}
+		docs := indexer.QueryDocs(c.Query("query"))
+		for _, doc := range docs {
+			faqs = append(faqs, &QueryResult{
+				Answer:          doc.Content,
+				Path:            doc.FilePath,
+				Question:        doc.Title,
+				QuestionLineNum: doc.BeginLineNum,
+			})
+		}
+		data := map[string]interface{}{
+			"data": map[string]interface{}{
+				"faqs": faqs,
+			},
+		}
+		c.JSON(200, data)
+	})
 	r.Run()
 }
