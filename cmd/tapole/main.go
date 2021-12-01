@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -173,11 +174,18 @@ type QueryResult struct {
 }
 
 func main() {
+	var dir string
+	flag.StringVar(&dir, "d", "", "笔记文件所在的目录")
+	flag.Parse()
+	if dir == "" {
+		log.Fatal("选项 -d 不能为空")
+		return
+	}
+
 	var indexer *Indexer
 
 	go func() {
 		// TODO: 需要获取一个 indexer 变量的写锁才行。
-		dir := "/Users/liutos/Projects/my_note/faq"
 		log.Printf("开始解析%s下的文件", dir)
 		files, err := listDirectoryFile(dir)
 		if err != nil {
