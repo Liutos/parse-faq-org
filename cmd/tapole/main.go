@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yanyiwu/gojieba"
+	"github.com/go-ego/gse"
 )
 
 // Doc 表示 .org 文件中的一条被简单解析过的条目。
@@ -124,15 +124,18 @@ func (*OrgParser) ParseFileContent(fileContent string, path string) ([]Doc, erro
 type Tokenizer struct{}
 
 var (
-	jiebaEngine *gojieba.Jieba
-	once        sync.Once
+	once sync.Once
+	seg  gse.Segmenter
 )
 
 func (*Tokenizer) Tokenize(content string) []string {
 	once.Do(func() {
-		jiebaEngine = gojieba.NewJieba() // TODO: 需要在进程退出时调用 Free 方法。
+		err := seg.LoadDict()
+		if err != nil {
+			panic(err)
+		}
 	})
-	return jiebaEngine.Cut(content, true)
+	return seg.Cut(content, true)
 }
 
 // listDirectoryFile 返回一个目录下除了.和..之外的所有文件的绝对路径。
