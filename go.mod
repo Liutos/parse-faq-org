@@ -1,4 +1,4 @@
-module tapole
+module tadpole
 
 go 1.15
 
