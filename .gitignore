@@ -118,3 +118,4 @@ dist
 Makefile
 bin/
 run/
+sync_faq.sh

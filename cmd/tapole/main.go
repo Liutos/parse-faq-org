@@ -125,13 +125,14 @@ func (*OrgParser) ParseFileContent(fileContent string, path string) ([]Doc, erro
 type Tokenizer struct{}
 
 var (
-	once sync.Once
-	seg  gse.Segmenter
+	dictPath string
+	once     sync.Once
+	seg      gse.Segmenter
 )
 
 func (*Tokenizer) Tokenize(content string) []string {
 	once.Do(func() {
-		err := seg.LoadDict()
+		err := seg.LoadDict(dictPath)
 		if err != nil {
 			panic(err)
 		}
@@ -176,9 +177,14 @@ type QueryResult struct {
 func main() {
 	var dir string
 	flag.StringVar(&dir, "d", "", "笔记文件所在的目录")
+	flag.StringVar(&dictPath, "i", "", "词典文件路径")
 	flag.Parse()
 	if dir == "" {
 		log.Fatal("选项 -d 不能为空")
+		return
+	}
+	if dictPath == "" {
+		log.Fatal("选项 -i 不能为空")
 		return
 	}
 
