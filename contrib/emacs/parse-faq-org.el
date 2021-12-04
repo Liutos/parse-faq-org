@@ -23,11 +23,14 @@
      :sync t)
     response))
 
+(defvar *parse-faq-org-endpoint* ""
+  "parse-faq-org 的服务地址，如 https://host/faq/query")
+
 (defun lt--query-parse-faq-org (query)
   "调用parse-faq-org服务的接口，查询与关键词QUERY匹配的内容。"
   (let ((response)
         (url (url-encode-url
-              (format "http://localhost:9020/faq/query?query=%s" query))))
+              (format "%s?query=%s" *parse-faq-org-endpoint* query))))
     (message "待请求的url为%s" url)
     (request
      url
