@@ -21,8 +21,13 @@ type Doc struct {
 	Title        string
 }
 
+type ITokenizer interface {
+	Tokenize(content string) []string
+}
+
 type Indexer struct {
 	WordToDocs map[string][]Doc
+	tokenizer  ITokenizer
 }
 
 func (indexer *Indexer) AddDoc(doc *Doc) {
@@ -33,7 +38,7 @@ func (indexer *Indexer) AddDoc(doc *Doc) {
 // QueryDocs 返回与输入 query 相关的文档的副本。
 func (indexer *Indexer) QueryDocs(query string) []Doc {
 	relatedDocs := map[string]Doc{}
-	words := (&Tokenizer{}).Tokenize(query)
+	words := indexer.tokenizer.Tokenize(query)
 	for _, word := range words {
 		_docs := indexer.WordToDocs[word]
 		for _, _doc := range _docs {
@@ -76,6 +81,7 @@ func (indexer *Indexer) addText(doc *Doc, text string) {
 func NewIndexer() *Indexer {
 	return &Indexer{
 		WordToDocs: map[string][]Doc{},
+		tokenizer:  &Tokenizer{},
 	}
 }
 
