@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-ego/gse"
@@ -226,41 +225,36 @@ func main() {
 
 	var indexer *Indexer
 
-	go func() {
-		// TODO: 需要获取一个 indexer 变量的写锁才行。
-		log.Printf("开始解析%s下的文件", dir)
-		files, err := listDirectoryFile(dir)
+	// TODO: 需要获取一个 indexer 变量的写锁才行。
+	log.Printf("开始解析%s下的文件", dir)
+	files, err := listDirectoryFile(dir)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	newIndexer := NewIndexer()
+	for _, file := range files {
+		data, err := ioutil.ReadFile(file)
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 
-		for {
-			newIndexer := NewIndexer()
-			for _, file := range files {
-				data, err := ioutil.ReadFile(file)
-				if err != nil {
-					log.Fatal(err)
-					return
-				}
-
-				content := string(data)
-				docs, err := (&OrgParser{}).ParseFileContent(content, file)
-				if err != nil {
-					log.Fatal(err)
-					return
-				}
-				log.Printf("解析了文件%s\n", file)
-
-				for _, doc := range docs {
-					newIndexer.AddDoc(&doc)
-					log.Printf("将文档%s加入到索引中\n", doc.Title)
-				}
-			}
-			indexer = newIndexer
-			time.Sleep(time.Minute)
+		content := string(data)
+		docs, err := (&OrgParser{}).ParseFileContent(content, file)
+		if err != nil {
+			log.Fatal(err)
+			return
 		}
-	}()
+		log.Printf("解析了文件%s\n", file)
+
+		for _, doc := range docs {
+			newIndexer.AddDoc(&doc)
+			log.Printf("将文档%s加入到索引中\n", doc.Title)
+		}
+	}
+	indexer = newIndexer
 
 	r := gin.Default()
 	r.GET("/faq/query", func(c *gin.Context) {
