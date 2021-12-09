@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -55,7 +59,7 @@ func (indexer *Indexer) QueryDocs(query string) []Doc {
 // 私有方法位于公开方法之下
 
 func (indexer *Indexer) addText(doc *Doc, text string) {
-	words := (&Tokenizer{}).Tokenize(text)
+	words := indexer.tokenizer.Tokenize(text)
 	for _, word := range words {
 		_, found := indexer.WordToDocs[word]
 		if !found {
@@ -81,7 +85,7 @@ func (indexer *Indexer) addText(doc *Doc, text string) {
 func NewIndexer() *Indexer {
 	return &Indexer{
 		WordToDocs: map[string][]Doc{},
-		tokenizer:  &Tokenizer{},
+		tokenizer:  &PullWordTokenizer{},
 	}
 }
 
@@ -144,6 +148,32 @@ func (*Tokenizer) Tokenize(content string) []string {
 		}
 	})
 	return seg.Cut(content, true)
+}
+
+type PullWordTokenizer struct{}
+
+type pullWordToken struct {
+	T string `json:"t"`
+}
+
+func (*PullWordTokenizer) Tokenize(content string) []string {
+	qs := url.Values{}
+	qs.Add("source", content)
+	qs.Add("param1", "0")
+	qs.Add("param2", "0")
+	qs.Add("json", "1")
+	// TODO: 补充对错误的处理。
+	req, _ := http.NewRequest("GET", "http://api.pullword.com/get.php", bytes.NewReader([]byte(qs.Encode())))
+	client := &http.Client{}
+	resp, _ := client.Do(req)
+	body, _ := ioutil.ReadAll(resp.Body)
+	var tokens []pullWordToken
+	json.Unmarshal(body, &tokens)
+	words := make([]string, len(tokens))
+	for i, token := range tokens {
+		words[i] = token.T
+	}
+	return words
 }
 
 // listDirectoryFile 返回一个目录下除了.和..之外的所有文件的绝对路径。
