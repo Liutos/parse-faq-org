@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-ego/gse"
+	"github.com/go-redis/redis/v8"
 )
 
 // Doc 表示 .org 文件中的一条被简单解析过的条目。
@@ -136,6 +138,7 @@ type Tokenizer struct{}
 var (
 	dictPath string
 	once     sync.Once
+	rdb      *redis.Client
 	seg      gse.Segmenter
 )
 
@@ -156,7 +159,24 @@ type pullWordToken struct {
 }
 
 func (*PullWordTokenizer) Tokenize(content string) ([]string, error) {
-	words := make([]string, 0)
+	once.Do(func() {
+		rdb = redis.NewClient(&redis.Options{
+			Addr:     "localhost:6379",
+			DB:       0,
+			Password: "",
+		})
+	})
+	var words []string
+	ctx := context.Background()
+	// TODO: 补充对下文中各种错误的处理。
+	cached, _ := rdb.Get(ctx, content).Result()
+	if cached != "" {
+		err := json.Unmarshal([]byte(cached), &words)
+		if err == nil {
+			return words, nil
+		}
+	}
+
 	urlText := fmt.Sprintf("http://api.pullword.com/get.php?source=%s&param1=0&param2=0&json=1", url.QueryEscape(content))
 	req, err := http.NewRequest("GET", urlText, nil)
 	if err != nil {
@@ -179,6 +199,8 @@ func (*PullWordTokenizer) Tokenize(content string) ([]string, error) {
 	for _, token := range tokens {
 		words = append(words, token.T)
 	}
+	bs, _ := json.Marshal(words)
+	_ = rdb.Set(ctx, content, string(bs), 0).Err()
 	return words, nil
 }
 
