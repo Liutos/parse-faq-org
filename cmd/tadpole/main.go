@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -25,7 +24,7 @@ type Doc struct {
 }
 
 type ITokenizer interface {
-	Tokenize(content string) []string
+	Tokenize(content string) ([]string, error)
 }
 
 type Indexer struct {
@@ -41,7 +40,7 @@ func (indexer *Indexer) AddDoc(doc *Doc) {
 // QueryDocs 返回与输入 query 相关的文档的副本。
 func (indexer *Indexer) QueryDocs(query string) []Doc {
 	relatedDocs := map[string]Doc{}
-	words := indexer.tokenizer.Tokenize(query)
+	words, _ := indexer.tokenizer.Tokenize(query)
 	for _, word := range words {
 		_docs := indexer.WordToDocs[word]
 		for _, _doc := range _docs {
@@ -58,7 +57,8 @@ func (indexer *Indexer) QueryDocs(query string) []Doc {
 // 私有方法位于公开方法之下
 
 func (indexer *Indexer) addText(doc *Doc, text string) {
-	words := indexer.tokenizer.Tokenize(text)
+	// TODO: 补充对错误的处理。
+	words, _ := indexer.tokenizer.Tokenize(text)
 	for _, word := range words {
 		_, found := indexer.WordToDocs[word]
 		if !found {
@@ -155,24 +155,31 @@ type pullWordToken struct {
 	T string `json:"t"`
 }
 
-func (*PullWordTokenizer) Tokenize(content string) []string {
-	qs := url.Values{}
-	qs.Add("source", content)
-	qs.Add("param1", "0")
-	qs.Add("param2", "0")
-	qs.Add("json", "1")
-	// TODO: 补充对错误的处理。
-	req, _ := http.NewRequest("GET", "http://api.pullword.com/get.php", bytes.NewReader([]byte(qs.Encode())))
+func (*PullWordTokenizer) Tokenize(content string) ([]string, error) {
+	words := make([]string, 0)
+	urlText := fmt.Sprintf("http://api.pullword.com/get.php?source=%s&param1=0&param2=0&json=1", url.QueryEscape(content))
+	req, err := http.NewRequest("GET", urlText, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	client := &http.Client{}
-	resp, _ := client.Do(req)
-	body, _ := ioutil.ReadAll(resp.Body)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	var tokens []pullWordToken
 	json.Unmarshal(body, &tokens)
-	words := make([]string, len(tokens))
-	for i, token := range tokens {
-		words[i] = token.T
+	for _, token := range tokens {
+		words = append(words, token.T)
 	}
-	return words
+	return words, nil
 }
 
 // listDirectoryFile 返回一个目录下除了.和..之外的所有文件的绝对路径。
